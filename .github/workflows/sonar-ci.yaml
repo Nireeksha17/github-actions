@@ -1,0 +1,59 @@
+name: CI Pipeline with SonarQube and Manual Approval
+ 
+on:
+  workflow_call:
+    outputs: 
+      sonar_status:
+        description: "The output of sonarqube quality gate check"
+        value: ${{ jobs.sonarqube_scan.outputs.status }}
+    # inputs:
+    #   projectKey:
+    #     description: 'project key : usually the name of the repository'
+    #     required: true
+    #     type: string
+ 
+jobs:
+  sonarqube_scan:
+    name: SonarQube Scan
+    runs-on: k8s
+    outputs:
+      status: ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: display message
+        run: |
+          echo 'Hello from Sonar job !!!'
+          echo "SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL_EG }}"
+
+      # - name: sonar task
+      #   uses: sonarsource/sonarqube-scan-action@master
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          
+      - name: sonar task        
+        uses: kitabisa/sonarqube-action@master
+        with:
+          host: ${{ secrets.SONAR_HOST_URL_EG }}
+          login: ${{ secrets.SONAR_TOKEN_EG }}
+          #projectBaseDir: "src/"
+          #projectKey: ${{ inputs.PROJECT_KEY }}
+          
+      - name: SonarQube Quality Gate check
+        id: sonarqube-quality-gate-check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+         # Force to fail step after specific time.
+        timeout-minutes: 5
+        env:
+         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_EG }}
+         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL_EG }}
+        continue-on-error: true 
+
+      # Show the output from the Quality Gate.
+      # The possible outputs of the `quality-gate-status` variable are `PASSED`, `WARN` or `FAILED`.
+      - name: "SonarQube Quality Gate Status value"
+        id: set_status
+        run: echo "The Quality Gate status is ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
+             status = ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}
